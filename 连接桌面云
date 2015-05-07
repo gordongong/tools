@@ -1,4 +1,8 @@
-1. 上wifi后，用IE直接访问西研的桌面云地址就可以了https://cloud-siay2.huawei.com
+libxl/xl.c              main.c ->查找cmd_table,找到handler->
+                                     eg. create domain
 
-2.  使用iaccess登陆后，IE访问深圳会议室https://cloud-szxgmeeting1.huawei.com， 打开会议室VM，
-通过igate.huawei.com跳转到西安的计算机，需要输入IP、用户名、密码、域名等。根据提示输入即可。
+
+libxl/libxl_create.c    libxl_domain_create_new->do_domain_create->libxl_domain_make->
+
+
+libxc/xc_domain.c       do_domctl(XEN_DOMCTL_createdomain)->do_xen_hypercall
