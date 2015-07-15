@@ -3,21 +3,37 @@ tools
 
 
 
-main_restore: create_domain(restoreing not migrate):
-1. 打开指定的snapshot文件
-2. domcreate_bootloader_done：
--libxl__build_pre
--xc_domain_restore:
-a.从snapshot文件中读取p2m表大小
-b.调用__HYPERVISOR_xen_version，获取vmm的线性地址起点、页表类型，用来？？?
-c.调用__HYPERVISOR_memory_op获取该domain的最大机器页表, 用来计算该domain的M2P表大小
-d.调用XEN_DOMCTL_get_address_size，获取该domain的内存位宽
-e.调用XEN_DOMCTL_getdomaininfo,获取该domain的状态、内存、cpu等信息
-f.将snapshot中的保存的内存映像读取到内存
-g.将snapshot中的vm的generation id、EPT的identity map参数 、io ring pfn页框、TSS段、vconsole的页框、 vapic的port、viridian flag、mmio地址
-  ， 调用__HYPERVISOR_hvm_op, 写入domain中
-h.从snapshot文件中读出设备模型的内存映射的start_addr、size、name， 更新到xenstore的/local/domain/0/device-model/domid/physmap目录
-i.将设备模型的内存映像写入到/var/lib/xen/qemu-resume.domid
-j.调用XEN_DOMCTL_sethvmcontext, 将snapshot文件中的vcpu上下文写入domain
-k.调用__HYPERVISOR_memory_op获取该domin最大的页框， 其后一个页框，通过__HYPERVISOR_grant_table_op将其设置为grant table。
-  mmap后将console与xenstore的io ring页框添加为条目。 后续其它domin或者xenstore可以访问。
+昨天下午座谈的纪要，包含了巩小东和我记录的部分，供参考
+
+服务器
+1.	青云目前有4个区，北京2个，广州1个，香港1个，总计大约1000台服务器
+2.	服务器计算与存储分开，规格为3u 24盘
+3.	各区之间网络不能互通，存在扩容问题
+4.	青云的虚拟机超分比大约是4，超分比较厉害，主要为了降低成本，通过热迁移完成负载均衡
+
+存储
+1.	系统盘本地复制，保持高可靠和热迁移的能力
+2.	系统卷用qcow2，镜像文件在本地磁盘缓存，并对镜像文件进行精简和压缩，从而实现宣传的秒级启动
+3.	server san使用ceph的多层存储，无太多研发投入，问题多，待重新选型。主机端使用flash cache缓存
+4.	对象存储自研，即将上线
+5.	高性能存储使用本地存储。2台机器一组，在host上内核层自研模块，一次io复制一份到另外一台服务器，迂回完成本地盘热迁移
+
+
+网络
+1.	青云采用GRE实现同一个子网跨二层之间的互通，没有使用vxlan，与之前交换机对vxlan能力的支持度有关，100台左右为一个集群，路由走网关
+2.	LB 采用HAproxy虚拟化部署，根据不同的规格部署不同数量的虚拟机
+3.	青云的Vrouter也是采用虚拟化部署
+4.	Router和LB都是采用单点部署，依赖VM本身的HA提供可靠性
+5.	青云受限于资金问题，目前的出口带宽不到10G，每年的流量不超过700G
+6.	青云实现的业务监控需要在用户VM里面部署agent，通过hypervisor层转发和监控管理节点互通，不走业务面网络
+
+
+运维
+1.	青云总共只有大约40人左右的团队，有3个人负责运维，主要的运维操作是进行扩容，因为动态热迁移做的比较好，不需要每次出问题都马上去进行运维，可以把问题积攒到一块，统一运维
+2.	青云有比较完善的运维监控系统，对系统的运行状态，网络状态进行监控，降低了运维的压力
+3.	机器人运维，核心是agent检测，发起热迁移，运维常态
+
+计费：
+1.	只有按需计费一种方式，通过单位费用乘上每月的时间，提供每月使用费用的预估，已及账户余额能够支持使用的剩余时间。
+2.	根据资源的生命周期事件（创建，删除，启动，停止等）触发计费事件，计费事件由分配资源的进程发出，后台话单处理为间隔为小时
+3.	提供充值返还的优惠方案，目前不支持包年包月
